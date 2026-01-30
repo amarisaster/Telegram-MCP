@@ -1,6 +1,0 @@
-name = "telegram-cloud"
-main = "src/index.ts"
-compatibility_date = "2024-01-01"
-
-[vars]
-TELEGRAM_BOT_TOKEN = "YOUR TOKEN HERE"
