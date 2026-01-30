@@ -1,0 +1,12 @@
+name = "telegram-cloud"
+main = "src/index.ts"
+compatibility_date = "2024-01-01"
+
+# ⚠️ SECRETS - Do NOT put tokens in this file
+# Use wrangler secret put to set these securely:
+#
+#   wrangler secret put TELEGRAM_BOT_TOKEN
+#   wrangler secret put ELEVENLABS_API_KEY    (optional, for voice)
+#   wrangler secret put OPENAI_API_KEY        (optional, fallback TTS)
+#
+# This stores them encrypted in Cloudflare, not in your repo.
