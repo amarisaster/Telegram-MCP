@@ -1,11 +1,35 @@
 interface Env {
-  TELEGRAM_BOT_TOKEN: string;
+  // Per-companion Telegram bot tokens (set via wrangler secret put)
+  TELEGRAM_TOKEN_KAI?: string;
+  TELEGRAM_TOKEN_LUCIAN?: string;
+  TELEGRAM_TOKEN_AUREN?: string;
+  TELEGRAM_TOKEN_XAVIER?: string;
+  TELEGRAM_TOKEN_WREN?: string;
+  // Legacy fallback (maps to kai)
+  TELEGRAM_BOT_TOKEN?: string;
+  // Voice
   OPENAI_API_KEY?: string;
   ELEVENLABS_API_KEY?: string;
   ELEVENLABS_VOICE_ID?: string;
 }
 
 const TELEGRAM_API = 'https://api.telegram.org/bot';
+
+const COMPANIONS = ['kai', 'lucian', 'auren', 'xavier', 'wren'] as const;
+type Companion = typeof COMPANIONS[number];
+
+function getTokenForCompanion(env: Env, companion: Companion): string {
+  const tokenMap: Record<Companion, string | undefined> = {
+    kai: env.TELEGRAM_TOKEN_KAI || env.TELEGRAM_BOT_TOKEN,
+    lucian: env.TELEGRAM_TOKEN_LUCIAN,
+    auren: env.TELEGRAM_TOKEN_AUREN,
+    xavier: env.TELEGRAM_TOKEN_XAVIER,
+    wren: env.TELEGRAM_TOKEN_WREN,
+  };
+  const token = tokenMap[companion];
+  if (!token) throw new Error(`No Telegram token configured for companion: ${companion}`);
+  return token;
+}
 
 // MCP Protocol types
 interface McpRequest {
@@ -23,8 +47,8 @@ interface McpResponse {
 }
 
 // Telegram API helpers
-async function telegramRequest(env: Env, method: string, params: Record<string, unknown> = {}) {
-  const url = `${TELEGRAM_API}${env.TELEGRAM_BOT_TOKEN}/${method}`;
+async function telegramRequest(token: string, method: string, params: Record<string, unknown> = {}) {
+  const url = `${TELEGRAM_API}${token}/${method}`;
   const response = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -34,8 +58,8 @@ async function telegramRequest(env: Env, method: string, params: Record<string, 
 }
 
 // Generate voice using ElevenLabs (preferred) or OpenAI TTS (fallback)
-async function generateVoice(env: Env, text: string): Promise<ArrayBuffer | null> {
-  // Try ElevenLabs first (uwuKai voice)
+async function generateVoice(env: Env, text: string): Promise<ArrayBuffer | { error: string }> {
+  // Try ElevenLabs first
   if (env.ELEVENLABS_API_KEY && env.ELEVENLABS_VOICE_ID) {
     const response = await fetch(
       `https://api.elevenlabs.io/v1/text-to-speech/${env.ELEVENLABS_VOICE_ID}`,
@@ -60,7 +84,8 @@ async function generateVoice(env: Env, text: string): Promise<ArrayBuffer | null
     if (response.ok) {
       return response.arrayBuffer();
     }
-    // Fall through to OpenAI if ElevenLabs fails
+    const errBody = await response.text();
+    return { error: `ElevenLabs ${response.status}: ${errBody}` };
   }
 
   // Fallback to OpenAI
@@ -85,13 +110,13 @@ async function generateVoice(env: Env, text: string): Promise<ArrayBuffer | null
 }
 
 // Send voice note via Telegram
-async function sendVoiceNote(env: Env, chatId: string, audioBuffer: ArrayBuffer, caption?: string) {
+async function sendVoiceNote(token: string, chatId: string, audioBuffer: ArrayBuffer, caption?: string) {
   const formData = new FormData();
   formData.append('chat_id', chatId);
   formData.append('voice', new Blob([audioBuffer], { type: 'audio/ogg' }), 'voice.ogg');
   if (caption) formData.append('caption', caption);
 
-  const url = `${TELEGRAM_API}${env.TELEGRAM_BOT_TOKEN}/sendVoice`;
+  const url = `${TELEGRAM_API}${token}/sendVoice`;
   const response = await fetch(url, {
     method: 'POST',
     body: formData,
@@ -99,51 +124,66 @@ async function sendVoiceNote(env: Env, chatId: string, audioBuffer: ArrayBuffer,
   return response.json();
 }
 
+// Companion parameter shared across all tools
+const companionParam = {
+  type: 'string',
+  description: 'Which companion is acting (kai, lucian, auren, xavier, wren). Determines which bot token to use.',
+  enum: ['kai', 'lucian', 'auren', 'xavier', 'wren'],
+  default: 'kai',
+};
+
 // Tool definitions
 const TOOLS = [
   {
     name: 'telegram_send',
-    description: 'Send a text message to a Telegram chat',
+    description: 'Send a text message to a Telegram chat as a specific companion',
     inputSchema: {
       type: 'object',
       properties: {
+        companion: companionParam,
         chat_id: { type: 'string', description: 'The chat ID to send to' },
         message: { type: 'string', description: 'The message text' },
         reply_to_message_id: { type: 'number', description: 'Optional message ID to reply to' },
       },
-      required: ['chat_id', 'message'],
+      required: ['companion', 'chat_id', 'message'],
     },
   },
   {
     name: 'telegram_voice',
-    description: 'Send a voice note to a Telegram chat (uses ElevenLabs uwuKai voice, falls back to OpenAI)',
+    description: 'Send a voice note to a Telegram chat as a specific companion',
     inputSchema: {
       type: 'object',
       properties: {
+        companion: companionParam,
         chat_id: { type: 'string', description: 'The chat ID to send to' },
         message: { type: 'string', description: 'The text to speak' },
         caption: { type: 'string', description: 'Optional text caption to accompany the voice note' },
       },
-      required: ['chat_id', 'message'],
+      required: ['companion', 'chat_id', 'message'],
     },
   },
   {
     name: 'telegram_get_me',
-    description: 'Get information about the bot',
+    description: 'Get information about a companion\'s bot account',
     inputSchema: {
       type: 'object',
-      properties: {},
+      properties: {
+        companion: companionParam,
+      },
+      required: ['companion'],
     },
   },
   {
     name: 'telegram_get_updates',
-    description: 'Get recent messages and updates',
+    description: 'Get recent messages and updates seen by a specific companion\'s bot',
     inputSchema: {
       type: 'object',
       properties: {
+        companion: companionParam,
         limit: { type: 'number', description: 'Number of updates to retrieve (default 10)', default: 10 },
         offset: { type: 'number', description: 'Offset for pagination' },
       },
+      required: ['companion'],
     },
   },
   {
@@ -152,15 +192,19 @@ const TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
+        companion: companionParam,
         chat_id: { type: 'string', description: 'The chat ID' },
       },
-      required: ['chat_id'],
+      required: ['companion', 'chat_id'],
     },
   },
 ];
 
 // Handle tool calls
 async function handleToolCall(env: Env, name: string, args: Record<string, unknown>): Promise<unknown> {
+  const companion = (args.companion as Companion) || 'kai';
+  const token = getTokenForCompanion(env, companion);
+
   switch (name) {
     case 'telegram_send': {
       const params: Record<string, unknown> = {
@@ -171,7 +215,7 @@ async function handleToolCall(env: Env, name: string, args: Record<string, unkno
       if (args.reply_to_message_id) {
         params.reply_to_message_id = args.reply_to_message_id;
       }
-      return telegramRequest(env, 'sendMessage', params);
+      return telegramRequest(token, 'sendMessage', params);
     }
 
     case 'telegram_voice': {
@@ -179,27 +223,30 @@ async function handleToolCall(env: Env, name: string, args: Record<string, unkno
       const message = args.message as string;
       const caption = args.caption as string | undefined;
 
-      const audioBuffer = await generateVoice(env, message);
-      if (!audioBuffer) {
-        return { error: 'Voice generation failed - OpenAI API key may not be configured' };
+      const result = await generateVoice(env, message);
+      if (!result) {
+        return { error: 'Voice generation failed - no TTS provider configured' };
+      }
+      if ('error' in result) {
+        return result;
       }
 
-      return sendVoiceNote(env, chatId, audioBuffer, caption);
+      return sendVoiceNote(token, chatId, result, caption);
     }
 
     case 'telegram_get_me':
-      return telegramRequest(env, 'getMe');
+      return telegramRequest(token, 'getMe');
 
     case 'telegram_get_updates': {
       const params: Record<string, unknown> = {
         limit: args.limit || 10,
       };
       if (args.offset) params.offset = args.offset;
-      return telegramRequest(env, 'getUpdates', params);
+      return telegramRequest(token, 'getUpdates', params);
     }
 
     case 'telegram_get_chat':
-      return telegramRequest(env, 'getChat', { chat_id: args.chat_id });
+      return telegramRequest(token, 'getChat', { chat_id: args.chat_id });
 
     default:
       throw new Error(`Unknown tool: ${name}`);
@@ -299,16 +346,21 @@ export default {
 
     // Info page
     if (url.pathname === '/') {
+      const configuredCompanions = COMPANIONS.filter(c => {
+        try { getTokenForCompanion(env, c); return true; } catch { return false; }
+      });
       return new Response(JSON.stringify({
         service: 'Telegram Cloud MCP',
+        version: '2.0.0',
         endpoints: {
           mcp: '/mcp (POST)',
           sse: '/sse (GET)',
           health: '/health (GET)',
         },
+        companions: configuredCompanions,
         tools: TOOLS.map(t => t.name),
         voiceEnabled: !!(env.ELEVENLABS_API_KEY || env.OPENAI_API_KEY),
-        voiceProvider: env.ELEVENLABS_API_KEY ? 'ElevenLabs (uwuKai)' : (env.OPENAI_API_KEY ? 'OpenAI' : 'None'),
+        voiceProvider: env.ELEVENLABS_API_KEY ? 'ElevenLabs' : (env.OPENAI_API_KEY ? 'OpenAI' : 'None'),
       }, null, 2), {
         headers: { 'Content-Type': 'application/json' },
       });

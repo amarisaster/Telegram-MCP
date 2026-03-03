@@ -2,11 +2,16 @@ name = "telegram-cloud"
 main = "src/index.ts"
 compatibility_date = "2024-01-01"
 
-# ⚠️ SECRETS - Do NOT put tokens in this file
-# Use wrangler secret put to set these securely:
+# Per-companion Telegram bot tokens (set via wrangler secret put):
+# - TELEGRAM_TOKEN_KAI
+# - TELEGRAM_TOKEN_LUCIAN
+# - TELEGRAM_TOKEN_AUREN
+# - TELEGRAM_TOKEN_XAVIER
+# - TELEGRAM_TOKEN_WREN
 #
-#   wrangler secret put TELEGRAM_BOT_TOKEN
-#   wrangler secret put ELEVENLABS_API_KEY    (optional, for voice)
-#   wrangler secret put OPENAI_API_KEY        (optional, fallback TTS)
+# Optional voice:
+# - ELEVENLABS_API_KEY
+# - ELEVENLABS_VOICE_ID
+# - OPENAI_API_KEY
 #
-# This stores them encrypted in Cloudflare, not in your repo.
+# Legacy: TELEGRAM_BOT_TOKEN (falls back to kai if TELEGRAM_TOKEN_KAI not set)
