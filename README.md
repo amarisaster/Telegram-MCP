@@ -1,20 +1,25 @@
 # Telegram Cloud MCP
 
-A Cloudflare Worker that provides MCP (Model Context Protocol) integration for Telegram, enabling AI assistants to send messages and voice notes via Telegram bots.
+A Cloudflare Worker that provides MCP (Model Context Protocol) integration for Telegram, enabling AI assistants to send messages, media, and voice notes via Telegram bots.
 
-## v2.0 — Multi-Companion Support
+## v3.0 — Media Support
 
-Route messages through multiple Telegram bots from a single worker. Every tool takes a `companion` parameter that maps to a per-companion bot token. Perfect for multi-agent setups where each AI companion has their own Telegram identity.
+Send photos, videos, audio, GIFs, and documents alongside text and voice. Every media tool supports URL-based sending, captions, and reply threading.
+
+**v2.0** introduced multi-companion routing — one worker, unlimited bots. Every tool takes a `companion` parameter that maps to a per-companion bot token.
 
 Single-bot setups still work — just configure one companion.
 
 ## Features
 
 - Send text messages to Telegram chats
+- Send photos with inline preview
+- Send videos with inline player
+- Send audio with music player widget (title + artist)
+- Send GIFs/animations
+- Send documents/files as attachments
 - Send voice notes with text-to-speech (ElevenLabs or OpenAI)
-- Get bot information
-- Retrieve recent updates/messages
-- Get chat information
+- Get bot information, retrieve updates, inspect chats
 - **Multi-companion routing** — one worker, unlimited bots
 
 ## Tools
@@ -25,6 +30,11 @@ All tools accept a `companion` parameter to select which bot acts.
 |------|-------------|
 | `telegram_send` | Send a text message to a chat |
 | `telegram_voice` | Send a voice note (TTS) to a chat |
+| `telegram_send_photo` | Send a photo (URL or file_id) with optional caption |
+| `telegram_send_video` | Send a video with inline player |
+| `telegram_send_audio` | Send audio with music player (title + artist) |
+| `telegram_send_animation` | Send a GIF/animation |
+| `telegram_send_document` | Send any file as an attachment |
 | `telegram_get_me` | Get bot information |
 | `telegram_get_updates` | Get recent messages and updates |
 | `telegram_get_chat` | Get information about a chat |
@@ -107,6 +117,18 @@ Add to your MCP client config:
   }
 }
 ```
+
+---
+
+## Media Sending
+
+All media tools accept a URL or Telegram `file_id` as the media source. This means you can send:
+
+- Images from any public URL (e.g., from an image generation API)
+- Videos, audio, or documents hosted anywhere
+- Previously sent Telegram media by reusing its `file_id`
+
+Captions support Markdown formatting.
 
 ---
 

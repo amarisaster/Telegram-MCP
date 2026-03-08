@@ -163,6 +163,83 @@ const TOOLS = [
     },
   },
   {
+    name: 'telegram_send_photo',
+    description: 'Send a photo to a Telegram chat as a specific companion. Supports URL or file_id.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        companion: companionParam,
+        chat_id: { type: 'string', description: 'The chat ID to send to' },
+        photo: { type: 'string', description: 'Photo URL or Telegram file_id' },
+        caption: { type: 'string', description: 'Optional caption for the photo' },
+        reply_to_message_id: { type: 'number', description: 'Optional message ID to reply to' },
+      },
+      required: ['companion', 'chat_id', 'photo'],
+    },
+  },
+  {
+    name: 'telegram_send_document',
+    description: 'Send a document/file to a Telegram chat as a specific companion. Supports URL or file_id.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        companion: companionParam,
+        chat_id: { type: 'string', description: 'The chat ID to send to' },
+        document: { type: 'string', description: 'Document URL or Telegram file_id' },
+        caption: { type: 'string', description: 'Optional caption for the document' },
+        reply_to_message_id: { type: 'number', description: 'Optional message ID to reply to' },
+      },
+      required: ['companion', 'chat_id', 'document'],
+    },
+  },
+  {
+    name: 'telegram_send_video',
+    description: 'Send a video to a Telegram chat as a specific companion. Displays with inline player. Supports URL or file_id.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        companion: companionParam,
+        chat_id: { type: 'string', description: 'The chat ID to send to' },
+        video: { type: 'string', description: 'Video URL or Telegram file_id' },
+        caption: { type: 'string', description: 'Optional caption for the video' },
+        reply_to_message_id: { type: 'number', description: 'Optional message ID to reply to' },
+      },
+      required: ['companion', 'chat_id', 'video'],
+    },
+  },
+  {
+    name: 'telegram_send_audio',
+    description: 'Send an audio file to a Telegram chat as a specific companion. Displays with music player widget. Supports URL or file_id.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        companion: companionParam,
+        chat_id: { type: 'string', description: 'The chat ID to send to' },
+        audio: { type: 'string', description: 'Audio URL or Telegram file_id' },
+        caption: { type: 'string', description: 'Optional caption for the audio' },
+        title: { type: 'string', description: 'Optional track title' },
+        performer: { type: 'string', description: 'Optional performer/artist name' },
+        reply_to_message_id: { type: 'number', description: 'Optional message ID to reply to' },
+      },
+      required: ['companion', 'chat_id', 'audio'],
+    },
+  },
+  {
+    name: 'telegram_send_animation',
+    description: 'Send a GIF/animation to a Telegram chat as a specific companion. Supports URL or file_id.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        companion: companionParam,
+        chat_id: { type: 'string', description: 'The chat ID to send to' },
+        animation: { type: 'string', description: 'GIF/animation URL or Telegram file_id' },
+        caption: { type: 'string', description: 'Optional caption for the animation' },
+        reply_to_message_id: { type: 'number', description: 'Optional message ID to reply to' },
+      },
+      required: ['companion', 'chat_id', 'animation'],
+    },
+  },
+  {
     name: 'telegram_get_me',
     description: 'Get information about a companion\'s bot account',
     inputSchema: {
@@ -234,6 +311,63 @@ async function handleToolCall(env: Env, name: string, args: Record<string, unkno
       return sendVoiceNote(token, chatId, result, caption);
     }
 
+    case 'telegram_send_photo': {
+      const params: Record<string, unknown> = {
+        chat_id: args.chat_id,
+        photo: args.photo,
+      };
+      if (args.caption) params.caption = args.caption;
+      if (args.caption) params.parse_mode = 'Markdown';
+      if (args.reply_to_message_id) params.reply_to_message_id = args.reply_to_message_id;
+      return telegramRequest(token, 'sendPhoto', params);
+    }
+
+    case 'telegram_send_document': {
+      const params: Record<string, unknown> = {
+        chat_id: args.chat_id,
+        document: args.document,
+      };
+      if (args.caption) params.caption = args.caption;
+      if (args.caption) params.parse_mode = 'Markdown';
+      if (args.reply_to_message_id) params.reply_to_message_id = args.reply_to_message_id;
+      return telegramRequest(token, 'sendDocument', params);
+    }
+
+    case 'telegram_send_video': {
+      const params: Record<string, unknown> = {
+        chat_id: args.chat_id,
+        video: args.video,
+      };
+      if (args.caption) params.caption = args.caption;
+      if (args.caption) params.parse_mode = 'Markdown';
+      if (args.reply_to_message_id) params.reply_to_message_id = args.reply_to_message_id;
+      return telegramRequest(token, 'sendVideo', params);
+    }
+
+    case 'telegram_send_audio': {
+      const params: Record<string, unknown> = {
+        chat_id: args.chat_id,
+        audio: args.audio,
+      };
+      if (args.caption) params.caption = args.caption;
+      if (args.caption) params.parse_mode = 'Markdown';
+      if (args.title) params.title = args.title;
+      if (args.performer) params.performer = args.performer;
+      if (args.reply_to_message_id) params.reply_to_message_id = args.reply_to_message_id;
+      return telegramRequest(token, 'sendAudio', params);
+    }
+
+    case 'telegram_send_animation': {
+      const params: Record<string, unknown> = {
+        chat_id: args.chat_id,
+        animation: args.animation,
+      };
+      if (args.caption) params.caption = args.caption;
+      if (args.caption) params.parse_mode = 'Markdown';
+      if (args.reply_to_message_id) params.reply_to_message_id = args.reply_to_message_id;
+      return telegramRequest(token, 'sendAnimation', params);
+    }
+
     case 'telegram_get_me':
       return telegramRequest(token, 'getMe');
 
@@ -266,7 +400,7 @@ async function processMcpRequest(env: Env, request: McpRequest): Promise<McpResp
           result: {
             protocolVersion: '2024-11-05',
             capabilities: { tools: {} },
-            serverInfo: { name: 'telegram-cloud', version: '1.0.0' },
+            serverInfo: { name: 'telegram-cloud', version: '3.0.0' },
           },
         };
 
@@ -351,7 +485,7 @@ export default {
       });
       return new Response(JSON.stringify({
         service: 'Telegram Cloud MCP',
-        version: '2.0.0',
+        version: '3.0.0',
         endpoints: {
           mcp: '/mcp (POST)',
           sse: '/sse (GET)',
