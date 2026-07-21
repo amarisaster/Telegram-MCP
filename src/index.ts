@@ -11,6 +11,9 @@ interface Env {
   OPENAI_API_KEY?: string;
   ELEVENLABS_API_KEY?: string;
   ELEVENLABS_VOICE_ID?: string;
+  // Optional access key. When set, /mcp + /sse require it (Bearer or ?k=/?key=).
+  // Unset = open — anyone with the worker URL can send Telegram as your companions.
+  MCP_KEY?: string;
 }
 
 const TELEGRAM_API = 'https://api.telegram.org/bot';
@@ -437,6 +440,15 @@ async function processMcpRequest(env: Env, request: McpRequest): Promise<McpResp
   }
 }
 
+// Constant-time-ish string compare (folds length into the result so it doesn't
+// early-return and leak the key length).
+function safeEqual(a: string, b: string): boolean {
+  let r = a.length ^ b.length;
+  const n = Math.max(a.length, b.length);
+  for (let i = 0; i < n; i++) r |= (a.charCodeAt(i) || 0) ^ (b.charCodeAt(i) || 0);
+  return r === 0;
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
@@ -446,6 +458,25 @@ export default {
       return new Response(JSON.stringify({ status: 'ok', service: 'telegram-cloud' }), {
         headers: { 'Content-Type': 'application/json' },
       });
+    }
+
+    // ── Access gate ────────────────────────────────────────────────────────
+    // /mcp + /sse can send Telegram messages (with voice) as any of your
+    // companions, via the bot tokens this worker holds. When MCP_KEY is set they
+    // require it: `Authorization: Bearer <key>` or `?k=<key>`/`?key=<key>`.
+    // Enforced only when the secret is configured, so a fresh clone isn't locked
+    // out — but set it, or anyone with the worker URL can post as your companions.
+    if (url.pathname === '/mcp' || url.pathname === '/sse') {
+      if (env.MCP_KEY) {
+        const authHeader = request.headers.get('Authorization');
+        const bearer = authHeader?.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+        const qk = url.searchParams.get('k') || url.searchParams.get('key') || '';
+        if (!safeEqual(bearer, env.MCP_KEY) && !safeEqual(qk, env.MCP_KEY)) {
+          return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+            status: 401, headers: { 'Content-Type': 'application/json' },
+          });
+        }
+      }
     }
 
     // MCP endpoint (HTTP transport)

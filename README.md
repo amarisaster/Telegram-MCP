@@ -70,6 +70,10 @@ wrangler secret put TELEGRAM_BOT_TOKEN
 wrangler secret put ELEVENLABS_API_KEY
 wrangler secret put ELEVENLABS_VOICE_ID
 wrangler secret put OPENAI_API_KEY
+
+# Access gate for /mcp + /sse — SET THIS, or anyone with the worker URL can
+# send Telegram as your companions. Then send it: Authorization: Bearer <MCP_KEY>
+wrangler secret put MCP_KEY
 ```
 
 **Customizing companion names:** Edit the `COMPANIONS` array and `getTokenForCompanion()` in `src/index.ts` to match your companion names and token env vars.

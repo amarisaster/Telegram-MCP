@@ -31,9 +31,14 @@ All credentials must be stored as **Cloudflare environment secrets**, never in c
 wrangler secret put TELEGRAM_BOT_TOKEN
 wrangler secret put ELEVENLABS_API_KEY    # optional, for voice
 wrangler secret put OPENAI_API_KEY        # optional, fallback TTS
+wrangler secret put MCP_KEY               # access gate for /mcp + /sse — SET THIS
 ```
 
 > **Why this matters:** Anything in `wrangler.toml` or committed code is visible in your repo history forever—even if you delete it later. Using `wrangler secret put` stores credentials encrypted in Cloudflare, completely separate from your codebase.
+
+### ⚠️ Set `MCP_KEY` — it gates the MCP endpoints
+
+`/mcp` and `/sse` can **send Telegram messages (and voice) as any of your companions**, using the bot tokens this worker holds. Set `MCP_KEY` and send it as `Authorization: Bearer <MCP_KEY>` (or `?k=<MCP_KEY>` for headerless clients). The gate is enforced **only when `MCP_KEY` is set**, so a fresh clone isn't locked out before you configure it — but an unset key leaves these endpoints **open to anyone who learns the worker URL.** Set it and update your MCP client in the same change. `/health` stays open.
 
 | Credential | Purpose |
 |------------|---------|
